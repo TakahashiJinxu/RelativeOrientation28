@@ -105,6 +105,10 @@ void main()
 			GPSInd[i]=No_2;
 			continue;
 		}
+		if(ViewInd[i]<4)
+			arr_f[i]=arr_f[i]*6/6.002;
+		else
+			arr_f[i]=arr_f[i]*6/6.000;
 	}
 	fclose(fpInd2);
 	
@@ -137,20 +141,36 @@ void main()
 		else
 		puredPoints[No_left*NumOfImage+No_right]=new CorresPoint [matchNum];
 		for(int k=0;k<matchNum;k++)
-		{
+ 		{
 			fscanf(fpRight,"%lf",&puredPoints[No_left*NumOfImage+No_right][k].x1);
+			if(ViewInd[No_left]<4)
+			puredPoints[No_left*NumOfImage+No_right][k].x1=puredPoints[No_left*NumOfImage+No_right][k].x1/6*6.000;
+			else
+		    puredPoints[No_left*NumOfImage+No_right][k].x1=puredPoints[No_left*NumOfImage+No_right][k].x1/6*6.000;
 		}
 		for(int k=0;k<matchNum;k++)
 		{
 			fscanf(fpRight,"%lf",&puredPoints[No_left*NumOfImage+No_right][k].y1);
+			if(ViewInd[No_left]<4)
+			puredPoints[No_left*NumOfImage+No_right][k].y1=puredPoints[No_left*NumOfImage+No_right][k].y1/6*6.000;
+			else
+            puredPoints[No_left*NumOfImage+No_right][k].y1=puredPoints[No_left*NumOfImage+No_right][k].y1/6*6.000;
 		}
 		for(int k=0;k<matchNum;k++)
 		{
 			fscanf(fpRight,"%lf",&puredPoints[No_left*NumOfImage+No_right][k].x2);
+			if(ViewInd[No_right]<4)
+			puredPoints[No_left*NumOfImage+No_right][k].x2=puredPoints[No_left*NumOfImage+No_right][k].x2/6*6.000;
+			else
+            puredPoints[No_left*NumOfImage+No_right][k].x2=puredPoints[No_left*NumOfImage+No_right][k].x2/6*6.000;
 		}
 		for(int k=0;k<matchNum;k++)
 		{
 			fscanf(fpRight,"%lf",&puredPoints[No_left*NumOfImage+No_right][k].y2);
+			if(ViewInd[No_right]<4)
+			puredPoints[No_left*NumOfImage+No_right][k].y2=puredPoints[No_left*NumOfImage+No_right][k].y2/6*6.000;
+			else
+			puredPoints[No_left*NumOfImage+No_right][k].y2=puredPoints[No_left*NumOfImage+No_right][k].y2/6*6.000;
 		}
 		fscanf(fpRight,"\n");
 	}
@@ -282,7 +302,7 @@ void main()
 #pragma omp parallel for private(cRows,BLength)
 		for(int i=0;i<NumOfImage;i++)
 	    {
-		    printf("%d\n",i);
+		   printf("%d\n",i);
 		   CvMat* mF0=cvCreateMat(3,3,CV_32FC1);
 	       CvMat* mF_fai1=cvCreateMat(3,3,CV_32FC1);
 	       CvMat* mF_omiga1=cvCreateMat(3,3,CV_32FC1);
