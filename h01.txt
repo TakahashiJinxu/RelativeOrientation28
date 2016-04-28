@@ -4,7 +4,6 @@
 #include<Eigen/Dense>
 #include <vector>
 #define PI 3.141592654
-#define DERIVATIVENUM 26
 using namespace std;
 struct CorresPoint
 {
@@ -157,7 +156,7 @@ void main()
 	}
 	/////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////
-	int nCols=6*nVerticalImage-7+7*(nViewNum-1);
+	int nCols=6*nVerticalImage-7+6*(nViewNum-1);
 	int nRows=0;
 	int nEles=0;
 	for(int i=0;i<NumOfImage;i++)
@@ -248,11 +247,6 @@ void main()
 		Ex_rela[i].dkappa*=PI/180;
 	}
 	fclose(fpRela);
-	double* miu=new double [nViewNum-1];
-	for(int i=0;i<nViewNum-1;i++)
-	{
-		miu[i]=1;
-	}
 	FILE* fpFindBug=fopen("D:\\killkillkill3720h\\WhichWrong.txt","w");
 	while(!stop&&interator<30)
 	{
@@ -309,10 +303,6 @@ void main()
 	       CvMat* mF_dfai2=cvCreateMat(3,3,CV_32FC1);
 	       CvMat* mF_domiga2=cvCreateMat(3,3,CV_32FC1);
 	       CvMat* mF_dkappa2=cvCreateMat(3,3,CV_32FC1);
-		   CvMat* mfR1=cvCreateMat(3,3,CV_32FC1);
-		   CvMat* mfR2=cvCreateMat(3,3,CV_32FC1);
-		   CvMat* mF_miu1=cvCreateMat(3,3,CV_32FC1);
-		   CvMat* mF_miu2=cvCreateMat(3,3,CV_32FC1);
 		   Eigen::SparseMatrix<double> smBPB_d(nCols,nCols);
 		   std::vector<Trip> mBPtripletList;
 		   double X1,Y1,Z1,X2,Y2,Z2;
@@ -324,23 +314,22 @@ void main()
 		   double Xh1,Yh1,Zh1,Xh2,Yh2,Zh2;
 		   double rX1_dfai1,rY1_dfai1,rZ1_dfai1,rX1_domiga1,rY1_domiga1,rZ1_domiga1,rX1_dkappa1,rY1_dkappa1,rZ1_dkappa1;
 		   double rX2_dfai2,rY2_dfai2,rZ2_dfai2,rX2_domiga2,rY2_domiga2,rZ2_domiga2,rX2_dkappa2,rY2_dkappa2,rZ2_dkappa2;
-		   double rX1_miu,rY1_miu,rZ1_miu,rX2_miu,rY2_miu,rZ2_miu,F_miu1,F_miu2;
 			for(int j=0;j<NumOfImage;j++)
 		    {
 			  
 				if(PureMatchNum[i*NumOfImage+j]==0)continue;
 
-				int* Indexs=new int [DERIVATIVENUM];
-				double* kernels=new double [DERIVATIVENUM*DERIVATIVENUM];
-				double* Fs=new double [DERIVATIVENUM];
-				double* Ls=new double [DERIVATIVENUM];
-				for(int k=0;k<DERIVATIVENUM;k++)
+				int* Indexs=new int [24];
+				double* kernels=new double [24*24];
+				double* Fs=new double [24];
+				double* Ls=new double [24];
+				for(int k=0;k<24;k++)
 				{
 					Indexs[k]=-1;
 					Fs[k]=0;
 					Ls[k]=0;
 				}
-				for(int k=0;k<DERIVATIVENUM*DERIVATIVENUM;k++)
+				for(int k=0;k<24*24;k++)
 				{
 					kernels[k]=0;
 				}
@@ -396,17 +385,10 @@ void main()
 					Indexs[22]=6*nVerticalImage-7+6*ViewInd[j]+4;
 					Indexs[23]=6*nVerticalImage-7+6*ViewInd[j]+5;
 				}
-				//Indexs[24]=6*nVerticalImage-7+6*(nViewNum-1);
-				if(ViewInd[i]<4)
-					Indexs[24]=6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[i];
-				if(ViewInd[j]<4&&ViewInd[j]!=ViewInd[i])
-					Indexs[25]=6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j];
 				Calculate_Matrix_R(mR1,arr_fai[GPSInd[i]],arr_omiga[GPSInd[i]],arr_kappa[GPSInd[i]]);
 				Calculate_Matrix_R(mR2,arr_fai[GPSInd[j]],arr_omiga[GPSInd[j]],arr_kappa[GPSInd[j]]);
 				Calculate_Matrix_R(mdR1,Ex_rela[ViewInd[i]].dfai,Ex_rela[ViewInd[i]].domiga,Ex_rela[ViewInd[i]].dkappa);
 				Calculate_Matrix_R(mdR2,Ex_rela[ViewInd[j]].dfai,Ex_rela[ViewInd[j]].domiga,Ex_rela[ViewInd[j]].dkappa);
-				cvGEMM(mR1,mdR1,1,NULL,0,mfR1);
-				cvGEMM(mR2,mdR2,1,NULL,0,mfR2);
 				wdX1=cvGetReal2D(mR1,0,0)*Ex_rela[ViewInd[i]].dX+cvGetReal2D(mR1,0,1)*Ex_rela[ViewInd[i]].dY+cvGetReal2D(mR1,0,2)*Ex_rela[ViewInd[i]].dZ;
 				wdY1=cvGetReal2D(mR1,1,0)*Ex_rela[ViewInd[i]].dX+cvGetReal2D(mR1,1,1)*Ex_rela[ViewInd[i]].dY+cvGetReal2D(mR1,1,2)*Ex_rela[ViewInd[i]].dZ;
 				wdZ1=cvGetReal2D(mR1,2,0)*Ex_rela[ViewInd[i]].dX+cvGetReal2D(mR1,2,1)*Ex_rela[ViewInd[i]].dY+cvGetReal2D(mR1,2,2)*Ex_rela[ViewInd[i]].dZ;
@@ -427,14 +409,8 @@ void main()
 						y1=puredPoints[i*NumOfImage+j][k].y1;
 						x2=puredPoints[i*NumOfImage+j][k].x2;
 						y2=puredPoints[i*NumOfImage+j][k].y2;
-						if(ViewInd[i]<4)
-							f1=miu[ViewInd[i]]*arr_f[i];
-						else
-							f1=arr_f[i];
-						if(ViewInd[j]<4)
-							f2=miu[ViewInd[j]]*arr_f[j];
-						else
-							f2=arr_f[j];
+						f1=arr_f[i];
+						f2=arr_f[j];
 						xyz2XYZ(mdR1,x1,y1,-f1,&Xh1,&Yh1,&Zh1);
 						xyz2XYZ(mR1,Xh1,Yh1,Zh1,&X1,&Y1,&Z1);
 						xyz2XYZ(mdR2,x2,y2,-f2,&Xh2,&Yh2,&Zh2);
@@ -541,7 +517,7 @@ void main()
 						cvSetReal2D(mF_dfai1,2,0,X2);
 						cvSetReal2D(mF_dfai1,2,1,Y2);
 						cvSetReal2D(mF_dfai1,2,2,Z2);
-						F_dfai1=-cvDet(mF_dfai1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_dfai1*X2-rX1_dfai1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dfai1=-cvDet(mF_dfai1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_dfai1*Z2-rZ1_dfai1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//对domiga1求导
 						cvSetReal2D(mMid,0,0,0);
@@ -566,7 +542,7 @@ void main()
 						cvSetReal2D(mF_domiga1,2,0,X2);
 						cvSetReal2D(mF_domiga1,2,1,Y2);
 						cvSetReal2D(mF_domiga1,2,2,Z2);
-						F_domiga1=-cvDet(mF_domiga1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_domiga1*X2-rX1_domiga1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_domiga1=-cvDet(mF_domiga1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_domiga1*Z2-rZ1_domiga1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//对dkappa1求导
 						cvSetReal2D(mMid,0,0,0);
@@ -591,7 +567,7 @@ void main()
 						cvSetReal2D(mF_dkappa1,2,0,X2);
 						cvSetReal2D(mF_dkappa1,2,1,Y2);
 						cvSetReal2D(mF_dkappa1,2,2,Z2);
-						F_dkappa1=-cvDet(mF_dkappa1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_dkappa1*X2-rX1_dkappa1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dkappa1=-cvDet(mF_dkappa1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_dkappa1*Z2-rZ1_dkappa1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对dfai2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -616,7 +592,7 @@ void main()
 						cvSetReal2D(mF_dfai2,2,0,rX2_dfai2);
 						cvSetReal2D(mF_dfai2,2,1,rY2_dfai2);
 						cvSetReal2D(mF_dfai2,2,2,rZ2_dfai2);
-						F_dfai2=-cvDet(mF_dfai2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_dfai2-X1*rZ2_dfai2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dfai2=-cvDet(mF_dfai2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_dfai2-Z1*rX2_dfai2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对domiga2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -641,7 +617,7 @@ void main()
 						cvSetReal2D(mF_domiga2,2,0,rX2_domiga2);
 						cvSetReal2D(mF_domiga2,2,1,rY2_domiga2);
 						cvSetReal2D(mF_domiga2,2,2,rZ2_domiga2);
-						F_domiga2=-cvDet(mF_domiga2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_domiga2-X1*rZ2_domiga2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_domiga2=-cvDet(mF_domiga2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_domiga2-Z1*rX2_domiga2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对dkappa2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -666,7 +642,7 @@ void main()
 						cvSetReal2D(mF_dkappa2,2,0,rX2_dkappa2);
 						cvSetReal2D(mF_dkappa2,2,1,rY2_dkappa2);
 						cvSetReal2D(mF_dkappa2,2,2,rZ2_dkappa2);
-						F_dkappa2=-cvDet(mF_dkappa2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_dkappa2-X1*rZ2_dkappa2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dkappa2=-cvDet(mF_dkappa2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_dkappa2-Z1*rX2_dkappa2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//计算对Xs1,Ys1,Zs1的偏导
 						F_Xs1=(Y1*Z2-Y2*Z1)/((X1*Z2-X2*Z1)*BLength)-(cvDet(mF0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1))/((X1*Z2-X2*Z1)*pow(BLength,3));
@@ -743,50 +719,6 @@ void main()
 						cvSetReal2D(mDD,2,2,Z2);
 						F_dZ1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mdR1,0,2)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR1,1,2)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR1,2,2)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						//
-						if(ViewInd[i]<4)
-						{
-							rX1_miu=-cvGetReal2D(mfR1,0,2)*arr_f[i];
-							rY1_miu=-cvGetReal2D(mfR1,1,2)*arr_f[i];
-							rZ1_miu=-cvGetReal2D(mfR1,2,2)*arr_f[i];
-						}
-						else
-						{
-							rX1_miu=rY1_miu=rZ1_miu=0;
-						}
-						if(ViewInd[j]<4)
-						{
-							rX2_miu=-cvGetReal2D(mfR2,0,2)*arr_f[j];
-							rY2_miu=-cvGetReal2D(mfR2,1,2)*arr_f[j];
-							rZ2_miu=-cvGetReal2D(mfR2,2,2)*arr_f[j];
-						}
-						else
-						{
-							rX2_miu=rY2_miu=rZ2_miu=0;
-						}
-						cvSetReal2D(mF_miu1,0,0,arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1);
-						cvSetReal2D(mF_miu1,0,1,arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1);
-						cvSetReal2D(mF_miu1,0,2,arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1);
-						cvSetReal2D(mF_miu1,1,0,rX1_miu);
-						cvSetReal2D(mF_miu1,1,1,rY1_miu);
-						cvSetReal2D(mF_miu1,1,2,rZ1_miu);
-						cvSetReal2D(mF_miu1,2,0,X2);
-						cvSetReal2D(mF_miu1,2,1,Y2);
-						cvSetReal2D(mF_miu1,2,2,Z2);
-
-						cvSetReal2D(mF_miu2,0,0,arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1);
-						cvSetReal2D(mF_miu2,0,1,arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1);
-						cvSetReal2D(mF_miu2,0,2,arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1);
-						cvSetReal2D(mF_miu2,1,0,X1);
-						cvSetReal2D(mF_miu2,1,1,Y1);
-						cvSetReal2D(mF_miu2,1,2,Z1);
-						cvSetReal2D(mF_miu2,2,0,rX2_miu);
-						cvSetReal2D(mF_miu2,2,1,rY2_miu);
-						cvSetReal2D(mF_miu2,2,2,rZ2_miu);
-
-						F_miu1=-cvDet(mF_miu1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_miu*Z2-X2*rZ1_miu)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
-						F_miu2=-cvDet(mF_miu2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_miu-rX2_miu*Z1)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
-						
-			//			F_miu=(-cvDet(mF_miu1)-cvDet(mF_miu2))/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_miu*Z2+X1*rZ2_miu-rX2_miu*Z1-X2*rZ1_miu)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//构造矩阵B
 						if(GPSInd[i]<nVerticalImage-2)
@@ -867,7 +799,6 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+3,F_dfai1);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+4,F_domiga1);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+5,F_dkappa1);
-								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[i],F_miu1);
 							}
 							Fs[12]=F_dX1*sqrt(arr_p[cRows]);
 							Fs[13]=F_dY1*sqrt(arr_p[cRows]);
@@ -875,7 +806,6 @@ void main()
 							Fs[15]=F_dfai1*sqrt(arr_p[cRows]);
 							Fs[16]=F_domiga1*sqrt(arr_p[cRows]);
 							Fs[17]=F_dkappa1*sqrt(arr_p[cRows]);
-							Fs[24]=F_miu1*sqrt(arr_p[cRows]);
 						}
 						if(ViewInd[j]<4&&ViewInd[j]!=ViewInd[i])
 						{
@@ -887,7 +817,6 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+3,F_dfai2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+4,F_domiga2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+5,F_dkappa2);
-								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j],F_miu2);
 							}
 							Fs[18]=F_dX2*sqrt(arr_p[cRows]);
 							Fs[19]=F_dY2*sqrt(arr_p[cRows]);
@@ -895,7 +824,6 @@ void main()
 							Fs[21]=F_dfai2*sqrt(arr_p[cRows]);
 							Fs[22]=F_domiga2*sqrt(arr_p[cRows]);
 							Fs[23]=F_dkappa2*sqrt(arr_p[cRows]);
-							Fs[25]=F_miu2*sqrt(arr_p[cRows]);
 						}
 						if(ViewInd[j]<4&&ViewInd[j]==ViewInd[i])
 						{
@@ -907,7 +835,6 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+3,F_dfai2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+4,F_domiga2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+5,F_dkappa2);
-								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j],F_miu2);
 							}
 							Fs[12]+=F_dX2*sqrt(arr_p[cRows]);
 							Fs[13]+=F_dY2*sqrt(arr_p[cRows]);
@@ -915,18 +842,17 @@ void main()
 							Fs[15]+=F_dfai2*sqrt(arr_p[cRows]);
 							Fs[16]+=F_domiga2*sqrt(arr_p[cRows]);
 							Fs[17]+=F_dkappa2*sqrt(arr_p[cRows]);
-							Fs[24]+=F_miu2*sqrt(arr_p[cRows]);
 						}
 			            dvV[cRows]=-F1;
 
-						for(int l=0;l<DERIVATIVENUM;l++)
+						for(int l=0;l<24;l++)
 						{
-							for(int o=0;o<DERIVATIVENUM;o++)
+							for(int o=0;o<24;o++)
 							{
-								kernels[l*DERIVATIVENUM+o]+=Fs[l]*Fs[o];
+								kernels[l*24+o]+=Fs[l]*Fs[o];
 							}
 						}
-						for(int l=0;l<DERIVATIVENUM;l++)
+						for(int l=0;l<24;l++)
 						{
 							Ls[l]+=Fs[l]*F0;
 						}
@@ -946,19 +872,19 @@ void main()
 						}*/
 					
 				}
-				for(int l=0;l<DERIVATIVENUM;l++)
+				for(int l=0;l<24;l++)
 				{
 					if(Indexs[l]!=-1)
 					{
 						#pragma omp critical (evalBPL)
 						dvBPL[Indexs[l]]=dvBPL[Indexs[l]]+Ls[l];
 					}
-					for(int o=0;o<DERIVATIVENUM;o++)
+					for(int o=0;o<24;o++)
 					{
 						if(Indexs[l]!=-1&&Indexs[o]!=-1)
 						{
 							#pragma omp critical (evalBPB)
-							mBPtripletList.emplace_back(Indexs[l],Indexs[o],kernels[l*DERIVATIVENUM+o]);
+							mBPtripletList.emplace_back(Indexs[l],Indexs[o],kernels[l*24+o]);
 						}
 					}
 				}
@@ -992,10 +918,6 @@ void main()
 			cvReleaseMat(&mF_dfai2);
 			cvReleaseMat(&mF_domiga2);
 			cvReleaseMat(&mF_dkappa2);
-			cvReleaseMat(&mfR1);
-			cvReleaseMat(&mfR2);
-			cvReleaseMat(&mF_miu1);
-			cvReleaseMat(&mF_miu2);
 			mBPtripletList.clear();
 		}
 		for(int u=0;u<StageNum;u++)
@@ -1182,8 +1104,6 @@ void main()
 			Ex_rela[i].domiga+=vX[6*nVerticalImage-7+6*i+4];
 			Ex_rela[i].dkappa+=vX[6*nVerticalImage-7+6*i+5];
 		}
-		for(int i=0;i<nViewNum-1;i++)
-			miu[i]+=vX[6*nVerticalImage-7+6*(nViewNum-1)+i];
 		FILE* fpExterior2;
 	   fpExterior2=fopen("D:\\毕设拷走\\中间结果\\F\\killkillkill3720\\Generated_Exterior_Elementsomp35.txt","w");
 	   for(int i=0;i<nVerticalImage;i++)
