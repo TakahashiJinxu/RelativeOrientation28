@@ -4,7 +4,7 @@
 #include<Eigen/Dense>
 #include <vector>
 #define PI 3.141592654
-#define DERIVATIVENUM 25
+#define DERIVATIVENUM 26
 using namespace std;
 struct CorresPoint
 {
@@ -48,8 +48,10 @@ void main()
 	int nBstep=10;
 	int rowh,colh;
 	double miuk;
+	double lamda=0.000001;
 	int StageNum=NumOfImage/EveryStage+1;
 	double sigma0;
+	double sigma1;
 	double p;
 	FILE* fpX;
 	double* Weight=new double [NumOfImage*NumOfImage];
@@ -157,7 +159,7 @@ void main()
 	}
 	/////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////
-	int nCols=6*nVerticalImage-7+6*(nViewNum-1)+1;
+	int nCols=6*nVerticalImage-7+7*(nViewNum-1);
 	int nRows=0;
 	int nEles=0;
 	for(int i=0;i<NumOfImage;i++)
@@ -211,16 +213,15 @@ void main()
 	int nperB=int(nEles/nBstep)+1;
 
 	std::vector<Trip> mBtripletList;
-	std::vector<Trip> mXtripletList;
 	std::vector<Trip> mmiuItripletList;
 	Eigen::SparseMatrix<double> smBPB(nCols,nCols);
+	Eigen::SparseMatrix<double> smBPB_LM(nCols,nCols);
 	Eigen::SparseMatrix<double> miuI(nCols,nCols);
 	Eigen::SparseMatrix<double> svL(nRows,1);
-	Eigen::SparseMatrix<double> svV(nRows,1);
-	Eigen::SparseMatrix<double> svX(nCols,1);
 	Eigen::SparseVector<double> svBPL;
 	Eigen::VectorXd dvBPL(nCols);
 	Eigen::VectorXd dvV(nRows);
+	Eigen::VectorXd dvV_copy(nRows);
 	Eigen::SparseMatrix<double>* psmBPB=new Eigen::SparseMatrix<double> [StageNum];
 	for(int i=0;i<StageNum;i++)
 	{
@@ -248,7 +249,11 @@ void main()
 		Ex_rela[i].dkappa*=PI/180;
 	}
 	fclose(fpRela);
-	double miu=1;
+	double* miu=new double [nViewNum-1];
+	for(int i=0;i<nViewNum-1;i++)
+	{
+		miu[i]=1;
+	}
 	FILE* fpFindBug=fopen("D:\\killkillkill3720h\\WhichWrong.txt","w");
 	while(!stop&&interator<30)
 	{
@@ -281,6 +286,8 @@ void main()
 	//	mBPtripletList.clear();
 		mBtripletList.reserve(nEles);
 	//	mBPtripletList.reserve(nEles);
+		mmiuItripletList.clear();
+		mmiuItripletList.reserve(nCols);
 #pragma omp parallel for private(cRows,BLength)
 		for(int i=0;i<NumOfImage;i++)
 	    {
@@ -320,7 +327,7 @@ void main()
 		   double Xh1,Yh1,Zh1,Xh2,Yh2,Zh2;
 		   double rX1_dfai1,rY1_dfai1,rZ1_dfai1,rX1_domiga1,rY1_domiga1,rZ1_domiga1,rX1_dkappa1,rY1_dkappa1,rZ1_dkappa1;
 		   double rX2_dfai2,rY2_dfai2,rZ2_dfai2,rX2_domiga2,rY2_domiga2,rZ2_domiga2,rX2_dkappa2,rY2_dkappa2,rZ2_dkappa2;
-		   double rX1_miu,rY1_miu,rZ1_miu,rX2_miu,rY2_miu,rZ2_miu,F_miu;
+		   double rX1_miu,rY1_miu,rZ1_miu,rX2_miu,rY2_miu,rZ2_miu,F_miu1,F_miu2;
 			for(int j=0;j<NumOfImage;j++)
 		    {
 			  
@@ -392,7 +399,11 @@ void main()
 					Indexs[22]=6*nVerticalImage-7+6*ViewInd[j]+4;
 					Indexs[23]=6*nVerticalImage-7+6*ViewInd[j]+5;
 				}
-				Indexs[24]=6*nVerticalImage-7+6*(nViewNum-1);
+				//Indexs[24]=6*nVerticalImage-7+6*(nViewNum-1);
+				if(ViewInd[i]<4)
+					Indexs[24]=6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[i];
+				if(ViewInd[j]<4&&ViewInd[j]!=ViewInd[i])
+					Indexs[25]=6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j];
 				Calculate_Matrix_R(mR1,arr_fai[GPSInd[i]],arr_omiga[GPSInd[i]],arr_kappa[GPSInd[i]]);
 				Calculate_Matrix_R(mR2,arr_fai[GPSInd[j]],arr_omiga[GPSInd[j]],arr_kappa[GPSInd[j]]);
 				Calculate_Matrix_R(mdR1,Ex_rela[ViewInd[i]].dfai,Ex_rela[ViewInd[i]].domiga,Ex_rela[ViewInd[i]].dkappa);
@@ -420,11 +431,11 @@ void main()
 						x2=puredPoints[i*NumOfImage+j][k].x2;
 						y2=puredPoints[i*NumOfImage+j][k].y2;
 						if(ViewInd[i]<4)
-							f1=miu*arr_f[i];
+							f1=miu[ViewInd[i]]*arr_f[i];
 						else
 							f1=arr_f[i];
 						if(ViewInd[j]<4)
-							f2=miu*arr_f[j];
+							f2=miu[ViewInd[j]]*arr_f[j];
 						else
 							f2=arr_f[j];
 						xyz2XYZ(mdR1,x1,y1,-f1,&Xh1,&Yh1,&Zh1);
@@ -533,7 +544,7 @@ void main()
 						cvSetReal2D(mF_dfai1,2,0,X2);
 						cvSetReal2D(mF_dfai1,2,1,Y2);
 						cvSetReal2D(mF_dfai1,2,2,Z2);
-						F_dfai1=-cvDet(mF_dfai1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_dfai1*X2-rX1_dfai1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dfai1=-cvDet(mF_dfai1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_dfai1*Z2-rZ1_dfai1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//对domiga1求导
 						cvSetReal2D(mMid,0,0,0);
@@ -558,7 +569,7 @@ void main()
 						cvSetReal2D(mF_domiga1,2,0,X2);
 						cvSetReal2D(mF_domiga1,2,1,Y2);
 						cvSetReal2D(mF_domiga1,2,2,Z2);
-						F_domiga1=-cvDet(mF_domiga1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_domiga1*X2-rX1_domiga1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_domiga1=-cvDet(mF_domiga1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_domiga1*Z2-rZ1_domiga1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//对dkappa1求导
 						cvSetReal2D(mMid,0,0,0);
@@ -583,7 +594,7 @@ void main()
 						cvSetReal2D(mF_dkappa1,2,0,X2);
 						cvSetReal2D(mF_dkappa1,2,1,Y2);
 						cvSetReal2D(mF_dkappa1,2,2,Z2);
-						F_dkappa1=-cvDet(mF_dkappa1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rZ1_dkappa1*X2-rX1_dkappa1*Z2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dkappa1=-cvDet(mF_dkappa1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_dkappa1*Z2-rZ1_dkappa1*X2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对dfai2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -608,7 +619,7 @@ void main()
 						cvSetReal2D(mF_dfai2,2,0,rX2_dfai2);
 						cvSetReal2D(mF_dfai2,2,1,rY2_dfai2);
 						cvSetReal2D(mF_dfai2,2,2,rZ2_dfai2);
-						F_dfai2=-cvDet(mF_dfai2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_dfai2-X1*rZ2_dfai2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dfai2=-cvDet(mF_dfai2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_dfai2-Z1*rX2_dfai2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对domiga2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -633,7 +644,7 @@ void main()
 						cvSetReal2D(mF_domiga2,2,0,rX2_domiga2);
 						cvSetReal2D(mF_domiga2,2,1,rY2_domiga2);
 						cvSetReal2D(mF_domiga2,2,2,rZ2_domiga2);
-						F_domiga2=-cvDet(mF_domiga2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_domiga2-X1*rZ2_domiga2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_domiga2=-cvDet(mF_domiga2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_domiga2-Z1*rX2_domiga2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//对dkappa2求导
 						cvSetReal2D(mMid,0,0,0);
@@ -658,7 +669,7 @@ void main()
 						cvSetReal2D(mF_dkappa2,2,0,rX2_dkappa2);
 						cvSetReal2D(mF_dkappa2,2,1,rY2_dkappa2);
 						cvSetReal2D(mF_dkappa2,2,2,rZ2_dkappa2);
-						F_dkappa2=-cvDet(mF_dkappa2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(Z1*rX2_dkappa2-X1*rZ2_dkappa2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_dkappa2=-cvDet(mF_dkappa2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_dkappa2-Z1*rX2_dkappa2)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 
 						//计算对Xs1,Ys1,Zs1的偏导
 						F_Xs1=(Y1*Z2-Y2*Z1)/((X1*Z2-X2*Z1)*BLength)-(cvDet(mF0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1))/((X1*Z2-X2*Z1)*pow(BLength,3));
@@ -678,7 +689,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dX2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mdR2,0,0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR2,1,0)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR2,2,0)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dX2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mR2,0,0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR2,1,0)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR2,2,0)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						
 						cvSetReal2D(mDD,0,0,cvGetReal2D(mR2,0,1));
 						cvSetReal2D(mDD,0,1,cvGetReal2D(mR2,1,1));
@@ -689,7 +700,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dY2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mdR2,0,1)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR2,1,1)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR2,2,1)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dY2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mR2,0,1)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR2,1,1)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR2,2,1)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						
 						cvSetReal2D(mDD,0,0,cvGetReal2D(mR2,0,2));
 						cvSetReal2D(mDD,0,1,cvGetReal2D(mR2,1,2));
@@ -700,7 +711,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dZ2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mdR2,0,2)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR2,1,2)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR2,2,2)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dZ2=-cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(cvGetReal2D(mR2,0,2)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR2,1,2)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR2,2,2)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						
 						cvSetReal2D(mDD,0,0,cvGetReal2D(mR1,0,0));
 						cvSetReal2D(mDD,0,1,cvGetReal2D(mR1,1,0));
@@ -711,7 +722,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dX1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mdR1,0,0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR1,1,0)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR1,2,0)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dX1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mR1,0,0)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR1,1,0)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR1,2,0)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						
 						cvSetReal2D(mDD,0,0,cvGetReal2D(mR1,0,1));
 						cvSetReal2D(mDD,0,1,cvGetReal2D(mR1,1,1));
@@ -722,7 +733,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dY1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mdR1,0,1)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR1,1,1)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR1,2,1)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dY1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mR1,0,1)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR1,1,1)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR1,2,1)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						
 						cvSetReal2D(mDD,0,0,cvGetReal2D(mR1,0,2));
 						cvSetReal2D(mDD,0,1,cvGetReal2D(mR1,1,2));
@@ -733,7 +744,7 @@ void main()
 						cvSetReal2D(mDD,2,0,X2);
 						cvSetReal2D(mDD,2,1,Y2);
 						cvSetReal2D(mDD,2,2,Z2);
-						F_dZ1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mdR1,0,2)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mdR1,1,2)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mdR1,2,2)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
+						F_dZ1=cvDet(mDD)/((X1*Z2-X2*Z1)*BLength)-cvDet(mF0)*(cvGetReal2D(mR1,0,2)*(arr_Xs[GPSInd[j]]+wdX2-arr_Xs[GPSInd[i]]-wdX1)+cvGetReal2D(mR1,1,2)*(arr_Ys[GPSInd[j]]+wdY2-arr_Ys[GPSInd[i]]-wdY1)+cvGetReal2D(mR1,2,2)*(arr_Zs[GPSInd[j]]+wdZ2-arr_Zs[GPSInd[i]]-wdZ1))/((X1*Z2-X2*Z1)*pow(BLength,3));
 						//
 						if(ViewInd[i]<4)
 						{
@@ -775,7 +786,10 @@ void main()
 						cvSetReal2D(mF_miu2,2,1,rY2_miu);
 						cvSetReal2D(mF_miu2,2,2,rZ2_miu);
 
-						F_miu=(-cvDet(mF_miu1)-cvDet(mF_miu2))/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_miu*Z2+X1*rZ2_miu-rX2_miu*Z1-X2*rZ1_miu)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_miu1=-cvDet(mF_miu1)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_miu*Z2-X2*rZ1_miu)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						F_miu2=-cvDet(mF_miu2)/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(X1*rZ2_miu-rX2_miu*Z1)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
+						
+			//			F_miu=(-cvDet(mF_miu1)-cvDet(mF_miu2))/((X1*Z2-X2*Z1)*BLength)+cvDet(mF0)*(rX1_miu*Z2+X1*rZ2_miu-rX2_miu*Z1-X2*rZ1_miu)/(BLength*(X1*Z2-X2*Z1)*(X1*Z2-X2*Z1));
 						
 						//构造矩阵B
 						if(GPSInd[i]<nVerticalImage-2)
@@ -856,6 +870,7 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+3,F_dfai1);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+4,F_domiga1);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[i]+5,F_dkappa1);
+								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[i],F_miu1);
 							}
 							Fs[12]=F_dX1*sqrt(arr_p[cRows]);
 							Fs[13]=F_dY1*sqrt(arr_p[cRows]);
@@ -863,6 +878,7 @@ void main()
 							Fs[15]=F_dfai1*sqrt(arr_p[cRows]);
 							Fs[16]=F_domiga1*sqrt(arr_p[cRows]);
 							Fs[17]=F_dkappa1*sqrt(arr_p[cRows]);
+							Fs[24]=F_miu1*sqrt(arr_p[cRows]);
 						}
 						if(ViewInd[j]<4&&ViewInd[j]!=ViewInd[i])
 						{
@@ -874,6 +890,7 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+3,F_dfai2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+4,F_domiga2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+5,F_dkappa2);
+								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j],F_miu2);
 							}
 							Fs[18]=F_dX2*sqrt(arr_p[cRows]);
 							Fs[19]=F_dY2*sqrt(arr_p[cRows]);
@@ -881,6 +898,7 @@ void main()
 							Fs[21]=F_dfai2*sqrt(arr_p[cRows]);
 							Fs[22]=F_domiga2*sqrt(arr_p[cRows]);
 							Fs[23]=F_dkappa2*sqrt(arr_p[cRows]);
+							Fs[25]=F_miu2*sqrt(arr_p[cRows]);
 						}
 						if(ViewInd[j]<4&&ViewInd[j]==ViewInd[i])
 						{
@@ -892,6 +910,7 @@ void main()
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+3,F_dfai2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+4,F_domiga2);
 								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*ViewInd[j]+5,F_dkappa2);
+								mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1)+ViewInd[j],F_miu2);
 							}
 							Fs[12]+=F_dX2*sqrt(arr_p[cRows]);
 							Fs[13]+=F_dY2*sqrt(arr_p[cRows]);
@@ -899,10 +918,8 @@ void main()
 							Fs[15]+=F_dfai2*sqrt(arr_p[cRows]);
 							Fs[16]+=F_domiga2*sqrt(arr_p[cRows]);
 							Fs[17]+=F_dkappa2*sqrt(arr_p[cRows]);
+							Fs[24]+=F_miu2*sqrt(arr_p[cRows]);
 						}
-						#pragma omp critical (evalB)
-							mBtripletList.emplace_back(cRows,6*nVerticalImage-7+6*(nViewNum-1),F_miu);
-						Fs[24]=F_miu*sqrt(arr_p[cRows]);
 			            dvV[cRows]=-F1;
 
 						for(int l=0;l<DERIVATIVENUM;l++)
@@ -989,52 +1006,47 @@ void main()
 			smBPB+=psmBPB[u];
 			psmBPB[u].setZero();
 		}
-		FILE* fpBPB=fopen("D:\\killkillkill3720h\\whatafuck.txt","w");
+cal_adjust_lamda:		int heihei=1;
 		for(int i=0;i<smBPB.cols();i++)
 		{
-			for(int j=0;j<smBPB.cols();j++)
-			{
-				fprintf(fpBPB,"%lf\t",smBPB.coeff(i,j));
-			}
-			fprintf(fpBPB,"\n");
-		}
-		fclose(fpBPB);
-		FILE* fpHH;
-		fpHH=fopen("D:\\killkillkill3720\\Buxin.txt","w");
-		for(int i=0;i<smBPB.cols();i++)
-		{
-			fprintf(fpHH,"%lf\n",dvBPL[i]);
-		}
-		fclose(fpHH);
-/*		miuk=0;
-		for(int i=0;i<smBPB.cols();i++)
-		{
-			miuk+=dvBPL[i]*dvBPL[i];
-		}
-		miuk=sqrt(miuk);
-		for(int i=0;i<smBPB.cols();i++)
-		{
-			mmiuItripletList.emplace_back(i,i,miuk);
+			mmiuItripletList.emplace_back(i,i,lamda*smBPB.coeff(i,i));
 		}
 		miuI.setFromTriplets(mmiuItripletList.begin(),mmiuItripletList.end());
-		smBPB+=miuI;
-		mmiuItripletList.clear();
-		miuI.setZero();*/
-		superSolver3.compute(smBPB);
+		smBPB_LM=smBPB+miuI;
+		miuI.setZero();
+		superSolver3.compute(smBPB_LM);
 		Eigen::VectorXd vX =superSolver3.solve(dvBPL);
-		dvBPL.setZero();
-		svV.setZero();
-		for(int i=0;i<nCols;i++)
+
+		vtpv=0;
+		for(int i=0;i<nRows;i++)
 		{
-			mXtripletList.emplace_back(i,0,vX[i]);
+			vtpv+=dvV(i,0)*dvV(i,0)*arr_p[i];
 		}
+		sigma0=sqrt(vtpv/(nRows-nCols));
 		for(int i=0;i<mBtripletList.size();i++)
 		{
 			rowh=mBtripletList[i].row();
 			colh=mBtripletList[i].col();
 			dvV[rowh]+=mBtripletList[i].value()*vX[colh];
 		}
-		mXtripletList.clear();
+		vtpv=0;
+		for(int i=0;i<nRows;i++)
+		{
+			vtpv+=dvV(i,0)*dvV(i,0)*arr_p[i];
+		}
+		sigma1=sqrt(vtpv/(nRows-nCols));
+		if(sigma0>sigma1)
+		{
+//			lamda*=0.1;
+		}
+		else
+		{
+			lamda*=10;
+			mmiuItripletList.clear();
+			goto cal_adjust_lamda;
+		}
+
+		dvBPL.setZero();
 		stop=true;
 		for(int i=0;i<nVerticalImage-2;i++)
 		{
@@ -1049,6 +1061,7 @@ void main()
 		{
 			FILE* fpmX;
 			fpmX=fopen("D:\\毕设拷走\\中间结果\\F\\killkillkill3720\\XbyStep9\\mX.txt","w");
+			//奇怪了，就是用来测试
 			vtpv=0;
 		    for(int i=0;i<nRows;i++)
 		    {
@@ -1071,60 +1084,7 @@ void main()
 	//		return;
 		}
 		smBPB.setZero();
-//		Eigen::VectorXd vX;
-		//检测矩阵输入是否正确
-		if(cRows==nRows)printf("Right!\n");
-		else printf("Wrong!\tcRows=%d,\tnRows=%d\n",cRows,nRows);
 	    //解算改正数
-		
-		/*for(int i=0;i<nRows;i++)
-		{
-			for(int j=0;j<nCols;j++)
-			{
-				cvSetReal2D(mBP,i,j,cvGetReal2D(mB,i,j)*arr_p[i]);
-			}
-		}*/
-		/*if(interator>3)
-		{
-			for(int i=0;i<nRows;i++)
-			{
-				p=exp(-0.05*pow(fabs(cvGetReal2D(mV,i,0))/sigma0,3));
-				arr_p[i]=p;
-				for(int j=0;j<nCols;j++)
-				{
-					cvSetReal2D(mBP,i,j,cvGetReal2D(mB,i,j)*p);
-				}
-			}
-		}
-		else
-		{
-			for(int i=0;i<nRows;i++)
-			{
-				p=1;
-				arr_p[i]=p;
-				for(int j=0;j<nCols;j++)
-				{
-					cvSetReal2D(mBP,i,j,cvGetReal2D(mB,i,j)*p);
-				}
-			}
-		}*/
-		/*cvGEMM(mBP,mB,1,NULL,0,mBTB,CV_GEMM_A_T);
-		cvGEMM(mBP,mL,1,NULL,0,mBTL,CV_GEMM_A_T);*/
-		/*for(int y=0;y<mBTB->height;y++)
-		{
-			for(int x=0;x<mBTB->width;x++)
-			{
-				fprintf(fpB,"%20.6e",cvGetReal2D(mBTB,y,x));
-			}
-			fprintf(fpB,"\n");
-		}
-		fclose(fpB);*/
-		/*if(NumOfImage<15)
-			method=CV_LU;
-		else
-			method=CV_SVD_SYM;
-		cvInvert(mBTB,mInv_BTB,CV_SVD_SYM);
-		cvGEMM(mInv_BTB,mBTL,1,NULL,0,mX);*/
 		sprintf(X_str,"D:\\毕设拷走\\中间结果\\F\\killkillkill3720\\XbyStep9\\X%d.txt",interator);
 		fpX=fopen(X_str,"w");
 		fprintf(fpX,"%d\n",interator);
@@ -1133,31 +1093,19 @@ void main()
 			fprintf(fpX,"%lf\n",vX[y]);
 		}
 		fclose(fpX);
-		//cvSolve(mB,mL,mX);
 		for(int i=0;i<nVerticalImage-2;i++)
 		{
-			//arr_Xs[i]+=cvGetReal2D(mX,6*i,0);
 			arr_Xs[i]+=vX[6*i];
-			//arr_Ys[i]+=cvGetReal2D(mX,6*i+1,0);
 			arr_Ys[i]+=vX[6*i+1];
-			//arr_Zs[i]+=cvGetReal2D(mX,6*i+2,0);
 			arr_Zs[i]+=vX[6*i+2];
-			//arr_fai[i]+=cvGetReal2D(mX,6*i+3,0);
 			arr_fai[i]+=vX[6*i+3];
-			//arr_omiga[i]+=cvGetReal2D(mX,6*i+4,0);
 			arr_omiga[i]+=vX[6*i+4];
-			//arr_kappa[i]+=cvGetReal2D(mX,6*i+5,0);
 			arr_kappa[i]+=vX[6*i+5];
 		}
-		//arr_Ys[NumOfImage-2]+=cvGetReal2D(mX,6*(NumOfImage-2),0);
 		arr_Ys[nVerticalImage-2]+=vX[6*(nVerticalImage-2)];
-		//arr_Zs[NumOfImage-2]+=cvGetReal2D(mX,6*(NumOfImage-2)+1,0);
 		arr_Zs[nVerticalImage-2]+=vX[6*(nVerticalImage-2)+1];
-		//arr_fai[NumOfImage-2]+=cvGetReal2D(mX,6*(NumOfImage-2)+2,0);
 		arr_fai[nVerticalImage-2]+=vX[6*(nVerticalImage-2)+2];
-		//arr_omiga[NumOfImage-2]+=cvGetReal2D(mX,6*(NumOfImage-2)+3,0);
 		arr_omiga[nVerticalImage-2]+=vX[6*(nVerticalImage-2)+3];
-		//arr_kappa[NumOfImage-2]+=cvGetReal2D(mX,6*(NumOfImage-2)+4,0);
 		arr_kappa[nVerticalImage-2]+=vX[6*(nVerticalImage-2)+4];
 		for(int i=0;i<nViewNum-1;i++)
 		{
@@ -1168,7 +1116,8 @@ void main()
 			Ex_rela[i].domiga+=vX[6*nVerticalImage-7+6*i+4];
 			Ex_rela[i].dkappa+=vX[6*nVerticalImage-7+6*i+5];
 		}
-		miu+=vX[6*nVerticalImage-7+6*(nViewNum-1)];
+		for(int i=0;i<nViewNum-1;i++)
+			miu[i]+=vX[6*nVerticalImage-7+6*(nViewNum-1)+i];
 		FILE* fpExterior2;
 	   fpExterior2=fopen("D:\\毕设拷走\\中间结果\\F\\killkillkill3720\\Generated_Exterior_Elementsomp35.txt","w");
 	   for(int i=0;i<nVerticalImage;i++)
@@ -1183,54 +1132,12 @@ void main()
 		   fprintf(fpWriteRela,"%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",Ex_rela[i].dX,Ex_rela[i].dY,Ex_rela[i].dZ,Ex_rela[i].dfai*180/PI,Ex_rela[i].domiga*180/PI,Ex_rela[i].dkappa*180/PI);
 	   }
 	   fclose(fpWriteRela);
-		vtpv=0;
-		//cvGEMM(mB,mX,1,mL,-1,mV);
-		for(int i=0;i<nRows;i++)
-		{
-			vtpv+=dvV(i,0)*dvV(i,0)*arr_p[i];
-		}
-		//cvGEMM(mV,mV,1,NULL,0,mVTV,CV_GEMM_A_T);
-		sigma0=sqrt(vtpv/(nRows-nCols));
 		
-		/*if(fabs(cvGetReal2D(mX,6*(NumOfImage-2)+2,0))>0.00005)
-			stop=false;
-		if(fabs(cvGetReal2D(mX,6*(NumOfImage-2)+3,0))>0.00005)
-			stop=false;
-		if(fabs(cvGetReal2D(mX,6*(NumOfImage-2)+4,0))>0.00005)
-			stop=false;*/
+
 	}
-	/*FILE* fpmX;
-	fpmX=fopen("F:\\mX.txt","w");
-	double mi;
-	for(int i=0;i<nCols;i++)
-	{
-		mi=sqrt(cvGetReal2D(mInv_BTB,i,i))*sigma0;
-		fprintf(fpmX,"%lf\n",mi);
-	}
-	for(int i=0;i<nCols;i++)
-	{
-		mi=sqrt(cvGetReal2D(mInv_BTB,i,i))*sigma0;
-		fprintf(fpmX,"%e\n",mi);
-	}
-	fclose(fpmX);*/
+
 	fclose(fpFindBug);
-	FILE* fpL;
-	fpL=fopen("D:\\MatlabFiles\\L19.txt","w");
 	
-	Eigen::MatrixXd dvL(nRows,1);
-	dvL=svL;
-	for(int i=0;i<nRows;i++)
-	{
-	    fprintf(fpL,"%lf\n",dvL(i,0));
-	}
-	fclose(fpL);
-	FILE* fpL2;
-	fpL2=fopen("D:\\MatlabFiles\\L20.txt","w");
-	for(int i=0;i<GoodPhotos.size();i++)
-	{
-	    fprintf(fpL2,"%lf\n",dvL(GoodPhotos[i],0));
-	}
-	fclose(fpL2);
 	cvWaitKey(0);
 }
 void Calculate_Matrix_R(CvMat* R,double fai,double omiga,double kappa)
